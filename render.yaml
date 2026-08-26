@@ -1,0 +1,33 @@
+services:
+  - type: web
+    name: deal-hunter-bot
+    runtime: python
+    plan: free
+    buildCommand: pip install -r requirements.txt
+    startCommand: python main.py
+    healthCheckPath: /healthz
+    autoDeploy: true
+    envVars:
+      - key: TELEGRAM_BOT_TOKEN
+        sync: false          # set in the Render dashboard (secret)
+      - key: TELEGRAM_CHAT_ID
+        sync: false
+      - key: SCAN_INTERVAL_HOURS
+        value: "3"
+      - key: DEFAULT_WATCHES
+        value: "iphone 15|900|256;pro , macbook air|1400|m2;m3"
+      - key: CAROUSELL_HOST
+        value: "www.carousell.sg"
+      - key: MAX_RESULTS
+        value: "40"
+      - key: SCAN_TOKEN
+        generateValue: true  # random secret for the /scan endpoint
+      - key: PYTHON_VERSION
+        value: "3.11.9"
+    # Optional but recommended: a small persistent disk so the "already seen"
+    # history survives redeploys (otherwise you may get one repeat alert after
+    # each deploy). Uncomment to enable (not available on the free plan).
+    # disk:
+    #   name: deal-data
+    #   mountPath: /opt/render/project/src/data
+    #   sizeGB: 1

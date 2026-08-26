@@ -1,0 +1,45 @@
+{
+  "props": {
+    "pageProps": {
+      "initialState": {
+        "search": {
+          "results": {
+            "items": [
+              {
+                "id": "1234567",
+                "title": "iPhone 15 Pro 256GB Natural Titanium",
+                "price": "S$1,150",
+                "locationName": "Tampines",
+                "condition": "Lightly used",
+                "photos": [{"imageUrl": "https://img.carousell.com/a.jpg"}]
+              },
+              {
+                "listingID": "7654321",
+                "title": "MacBook Air M2 13 inch 256GB",
+                "price": "S$1,299",
+                "location": "Jurong",
+                "conditionName": "Used",
+                "images": ["https://img.carousell.com/b.jpg"]
+              },
+              {
+                "id": "9999999",
+                "name": "iPhone 15 (free gift screen protector)",
+                "priceFormatted": "S$999",
+                "locationName": "Bishan"
+              },
+              {
+                "id": "555",
+                "title": "Not a listing - missing price"
+              },
+              {
+                "unrelated": true,
+                "id": "000",
+                "price": "S$10"
+              }
+            ]
+          }
+        }
+      }
+    }
+  }
+}

@@ -1,0 +1,111 @@
+"""Runtime configuration loaded from environment variables.
+
+Values come from the process environment (Render dashboard) or a local .env
+file loaded via python-dotenv. Nothing here reaches out to the network, so it
+is safe to import from anywhere.
+"""
+from __future__ import annotations
+
+import os
+from dataclasses import dataclass, field
+from typing import List, Optional
+
+try:
+    from dotenv import load_dotenv
+
+    load_dotenv()
+except Exception:  # pragma: no cover - dotenv is optional at runtime
+    pass
+
+
+@dataclass(frozen=True)
+class Watch:
+    """A saved search: what to look for and how to filter it."""
+
+    query: str
+    max_price: Optional[float] = None
+    keywords: List[str] = field(default_factory=list)
+
+    def describe(self) -> str:
+        bits = [f'"{self.query}"']
+        if self.max_price is not None:
+            bits.append(f"under ${self.max_price:,.0f}")
+        if self.keywords:
+            bits.append("matching " + "/".join(self.keywords))
+        return " ".join(bits)
+
+
+def _parse_watch(raw: str) -> Optional[Watch]:
+    """Parse one watch spec: ``query|maxPrice|kw1;kw2`` (price/keywords optional)."""
+    raw = raw.strip()
+    if not raw:
+        return None
+    parts = [p.strip() for p in raw.split("|")]
+    query = parts[0]
+    if not query:
+        return None
+    max_price: Optional[float] = None
+    if len(parts) > 1 and parts[1]:
+        try:
+            max_price = float(parts[1].replace(",", "").replace("$", ""))
+        except ValueError:
+            max_price = None
+    keywords: List[str] = []
+    if len(parts) > 2 and parts[2]:
+        keywords = [k.strip().lower() for k in parts[2].split(";") if k.strip()]
+    return Watch(query=query, max_price=max_price, keywords=keywords)
+
+
+def parse_watches(raw: str) -> List[Watch]:
+    """Parse the comma-separated DEFAULT_WATCHES env string into Watch objects."""
+    watches: List[Watch] = []
+    for chunk in raw.split(","):
+        watch = _parse_watch(chunk)
+        if watch:
+            watches.append(watch)
+    return watches
+
+
+def _get_float(name: str, default: float) -> float:
+    try:
+        return float(os.environ.get(name, "").strip() or default)
+    except ValueError:
+        return default
+
+
+def _get_int(name: str, default: int) -> int:
+    try:
+        return int(os.environ.get(name, "").strip() or default)
+    except ValueError:
+        return default
+
+
+@dataclass(frozen=True)
+class Settings:
+    telegram_token: str
+    telegram_chat_id: str
+    scan_interval_hours: float
+    default_watches: List[Watch]
+    carousell_host: str
+    max_results: int
+    port: int
+    scan_token: str
+    data_dir: str
+
+    @property
+    def has_token(self) -> bool:
+        return bool(self.telegram_token and ":" in self.telegram_token)
+
+
+def load_settings() -> Settings:
+    return Settings(
+        telegram_token=os.environ.get("TELEGRAM_BOT_TOKEN", "").strip(),
+        telegram_chat_id=os.environ.get("TELEGRAM_CHAT_ID", "").strip(),
+        scan_interval_hours=_get_float("SCAN_INTERVAL_HOURS", 3.0),
+        default_watches=parse_watches(os.environ.get("DEFAULT_WATCHES", "")),
+        carousell_host=os.environ.get("CAROUSELL_HOST", "www.carousell.sg").strip(),
+        max_results=_get_int("MAX_RESULTS", 40),
+        port=_get_int("PORT", 10000),
+        scan_token=os.environ.get("SCAN_TOKEN", "").strip(),
+        data_dir=os.environ.get("DATA_DIR", "data").strip() or "data",
+    )
