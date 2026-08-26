@@ -47,4 +47,18 @@ def create_health_app(
         application.job_queue.run_once(scheduled_scan, when=1, name="manual_scan")
         return jsonify(status="scan scheduled")
 
+    @flask_app.get("/debug/carousell")
+    def debug_carousell():
+        """Diagnose why a search returns nothing. Guarded by SCAN_TOKEN.
+        Example: /debug/carousell?token=YOUR_SCAN_TOKEN&q=iphone
+        """
+        token = request.args.get("token", "")
+        if settings.scan_token and token != settings.scan_token:
+            return jsonify(error="unauthorized"), 401
+        from .scrapers.carousell import CarousellScraper
+
+        query = request.args.get("q", "iphone")
+        scraper = CarousellScraper(host=settings.carousell_host)
+        return jsonify(scraper.diagnostics(query))
+
     return flask_app

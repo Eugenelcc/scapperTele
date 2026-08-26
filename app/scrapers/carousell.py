@@ -203,3 +203,55 @@ class CarousellScraper(BaseScraper):
         except Exception as exc:  # never let a parse quirk break the scan
             log.exception("carousell parse failed for %r: %s", query, exc)
             return []
+
+    def diagnostics(self, query: str) -> dict:
+        """Fetch a query and report what we got, without parsing failures hiding
+        the cause. Used by the /debug/carousell endpoint to tell a block apart
+        from a changed-JSON-shape problem.
+        """
+        url = self._url(query)
+        info: dict = {"url": url, "host": self.host}
+        try:
+            with httpx.Client(
+                headers=_HEADERS, timeout=self.timeout, follow_redirects=True
+            ) as client:
+                resp = client.get(url)
+                info["status"] = resp.status_code
+                info["final_url"] = str(resp.url)
+                html = resp.text
+        except Exception as exc:
+            info["error"] = repr(exc)
+            return info
+
+        info["length"] = len(html)
+        info["has_next_data"] = bool(_SCRIPT_RE.search(html))
+        info["has_initial_state"] = bool(_STATE_RE.search(html))
+
+        # Look for common bot-wall / challenge markers.
+        low = html.lower()
+        blockers = [
+            m
+            for m in (
+                "perimeterx",
+                "px-captcha",
+                "captcha",
+                "access denied",
+                "are you a robot",
+                "just a moment",
+                "cf-challenge",
+                "cloudflare",
+            )
+            if m in low
+        ]
+        if blockers:
+            info["blockers"] = blockers
+
+        document = _json_from_html(html)
+        info["json_parsed"] = document is not None
+        if document is not None:
+            info["listing_like_nodes"] = sum(1 for _ in _walk(document))
+            info["extracted_listings"] = len(extract_listings(document, self.host))
+
+        # First bit of the body helps eyeball a challenge page vs. real HTML.
+        info["snippet"] = html[:600]
+        return info
