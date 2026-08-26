@@ -98,10 +98,18 @@ class Settings:
     scraper_render: bool
     scraper_ultra: bool
     scraper_country: str
+    ebay_app_id: str
+    ebay_cert_id: str
+    ebay_marketplace: str
+    ebay_env: str
 
     @property
     def has_token(self) -> bool:
         return bool(self.telegram_token and ":" in self.telegram_token)
+
+    @property
+    def ebay_enabled(self) -> bool:
+        return bool(self.ebay_app_id and self.ebay_cert_id)
 
     @property
     def has_webapp(self) -> bool:
@@ -165,4 +173,10 @@ def load_settings() -> Settings:
         scraper_render=_bool_env("SCRAPER_RENDER", True),
         scraper_ultra=_bool_env("SCRAPER_ULTRA_PREMIUM", True),
         scraper_country=os.environ.get("SCRAPER_COUNTRY", "sg").strip() or "sg",
+        ebay_app_id=os.environ.get("EBAY_APP_ID", "").strip(),
+        ebay_cert_id=os.environ.get("EBAY_CERT_ID", "").strip(),
+        ebay_marketplace=os.environ.get("EBAY_MARKETPLACE", "EBAY_SG").strip()
+        or "EBAY_SG",
+        ebay_env=os.environ.get("EBAY_ENV", "production").strip().lower()
+        or "production",
     )

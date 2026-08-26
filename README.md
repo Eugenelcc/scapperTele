@@ -130,6 +130,30 @@ A healthy response shows `"status": 200`, `"json_parsed": true`, and a non-zero
 `"extracted_listings"`. If you see `"blockers": ["cloudflare"]`, the key isn't
 set (or `direct` mode is on).
 
+## ✅ Recommended free source: eBay (always works)
+
+Because Carousell's Cloudflare wall needs a *paid* scraping tier to beat
+reliably, the bot also supports **eBay's official Browse API** — free,
+legitimate, and never bot-walled. It's a **multi-source** setup: Carousell and
+eBay run together, and results are merged. If you only set up eBay, the bot
+works perfectly on its own.
+
+**Setup (free):**
+1. Sign up at **[developer.ebay.com](https://developer.ebay.com)** →
+   **Application Keys** → create a keyset.
+2. Copy the **Production App ID (Client ID)** and **Cert ID (Client Secret)**.
+3. Set them as `EBAY_APP_ID` and `EBAY_CERT_ID` in your environment / Render.
+
+That's it — the bot auto-enables eBay when both keys are present. Set
+`EBAY_MARKETPLACE` (default `EBAY_SG`; use `EBAY_US` if SG errors for your
+account). eBay is free and effectively unlimited for personal use, so it's the
+dependable backbone; treat Carousell (via scraping API) as a bonus when you
+have credits.
+
+> Trade-off: eBay is a global catalogue (sellers worldwide, often shipping to
+> SG) rather than the local Carousell second-hand market — great for "cheapest
+> available," lighter on local used bargains.
+
 ## 3. Deploy to Render (24/7)
 
 This repo includes a [`render.yaml`](./render.yaml) blueprint.
@@ -188,7 +212,12 @@ All configuration is via environment variables (see [`.env.example`](./.env.exam
 | `SCRAPER_RENDER` | `true` | Execute JS on fetch. |
 | `SCRAPER_COUNTRY` | `sg` | Proxy country. |
 
-*`SCRAPER_PROVIDER` defaults to `scraperapi` when `SCRAPER_API_KEY` is set, otherwise `direct` (no proxy — Carousell will be blocked).
+| `EBAY_APP_ID` | — | eBay Production App ID (Client ID). Enables the eBay source. |
+| `EBAY_CERT_ID` | — | eBay Production Cert ID (Client Secret). |
+| `EBAY_MARKETPLACE` | `EBAY_SG` | eBay marketplace (e.g. `EBAY_US`, `EBAY_GB`). |
+| `EBAY_ENV` | `production` | `production` or `sandbox`. |
+
+*`SCRAPER_PROVIDER` defaults to `scraperapi` when `SCRAPER_API_KEY` is set, otherwise `direct` (no proxy — Carousell will be blocked). The **eBay** source turns on automatically when both eBay keys are set; you can run eBay only, Carousell only, or both.
 | `SCAN_TOKEN` | — | Shared secret guarding `GET /scan`. |
 | `WEBAPP_URL` | *(RENDER_EXTERNAL_URL)* | Public https base URL for the Mini App. Auto on Render. |
 | `WEBAPP_ALLOW_INSECURE` | `false` | Dev-only: skip Telegram initData validation. |

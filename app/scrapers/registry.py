@@ -7,6 +7,7 @@ from typing import List
 from ..core.models import Listing
 from .base import BaseScraper
 from .carousell import CarousellScraper
+from .ebay import EbayScraper
 from .fetcher import Fetcher, FetcherConfig, fetcher_from_settings
 
 log = logging.getLogger(__name__)
@@ -25,10 +26,23 @@ class ScraperRegistry:
 
     @classmethod
     def from_settings(cls, settings) -> "ScraperRegistry":
-        return cls.default(
-            carousell_host=settings.carousell_host,
-            fetcher=fetcher_from_settings(settings),
-        )
+        scrapers: List[BaseScraper] = [
+            CarousellScraper(
+                host=settings.carousell_host,
+                fetcher=fetcher_from_settings(settings),
+            )
+        ]
+        if settings.ebay_enabled:
+            scrapers.append(
+                EbayScraper(
+                    app_id=settings.ebay_app_id,
+                    cert_id=settings.ebay_cert_id,
+                    marketplace=settings.ebay_marketplace,
+                    env=settings.ebay_env,
+                )
+            )
+            log.info("ebay source enabled (%s)", settings.ebay_marketplace)
+        return cls(scrapers)
 
     def search(self, query: str, limit: int = 40) -> List[Listing]:
         """Search every source and merge the results."""

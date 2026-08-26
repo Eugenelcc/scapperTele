@@ -28,6 +28,14 @@ services:
         value: "scraperapi"  # or "scrapedo"; "direct" disables the proxy
       - key: SCRAPER_ULTRA_PREMIUM
         value: "true"        # needed to pass Cloudflare (costs more credits)
+      # eBay source (free, official, no bot-wall). Create a free app at
+      # https://developer.ebay.com and paste the Production keys in the dashboard.
+      - key: EBAY_APP_ID
+        sync: false
+      - key: EBAY_CERT_ID
+        sync: false
+      - key: EBAY_MARKETPLACE
+        value: "EBAY_SG"
       - key: SCAN_TOKEN
         generateValue: true  # random secret for the /scan endpoint
       - key: PYTHON_VERSION

@@ -1,0 +1,28 @@
+{
+  "total": 3,
+  "itemSummaries": [
+    {
+      "itemId": "v1|1234567890|0",
+      "title": "Apple iPhone 15 Pro 256GB Natural Titanium Unlocked",
+      "price": {"value": "999.00", "currency": "SGD"},
+      "itemWebUrl": "https://www.ebay.com/itm/1234567890",
+      "image": {"imageUrl": "https://i.ebayimg.com/images/g/abc/s-l500.jpg"},
+      "condition": "New",
+      "itemLocation": {"country": "SG"}
+    },
+    {
+      "itemId": "v1|9876543210|0",
+      "title": "MacBook Air M2 13-inch 256GB Space Grey",
+      "price": {"value": "1250.50", "currency": "USD"},
+      "itemWebUrl": "https://www.ebay.com/itm/9876543210",
+      "image": {"imageUrl": "https://i.ebayimg.com/images/g/def/s-l500.jpg"},
+      "condition": "Used",
+      "itemLocation": {"country": "US"}
+    },
+    {
+      "itemId": "",
+      "title": "Broken row missing id",
+      "price": {"value": "10.00", "currency": "SGD"}
+    }
+  ]
+}
