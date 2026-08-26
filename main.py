@@ -36,8 +36,8 @@ log = logging.getLogger("deal-hunter")
 _application: Optional[Application] = None
 
 
-def _run_health_server(port: int, settings) -> None:
-    flask_app = create_health_app(settings, lambda: _application)
+def _run_health_server(port: int, settings, service=None) -> None:
+    flask_app = create_health_app(settings, lambda: _application, service=service)
     server = make_server("0.0.0.0", port, flask_app)
     log.info("health server listening on :%d", port)
     server.serve_forever()
@@ -47,13 +47,12 @@ def main() -> None:
     global _application
     settings = load_settings()
 
-    # Health server first, so Render sees an open port even if the token is
-    # missing or the bot fails to start.
-    threading.Thread(
-        target=_run_health_server, args=(settings.port, settings), daemon=True
-    ).start()
-
     if not settings.has_token:
+        # No bot -> no Mini App API, but keep the health port open so Render's
+        # deploy is inspectable and the missing-token error is visible.
+        threading.Thread(
+            target=_run_health_server, args=(settings.port, settings), daemon=True
+        ).start()
         log.error(
             "TELEGRAM_BOT_TOKEN is not set (or malformed). The health server is "
             "running, but the bot will not start. Set the token in your "
@@ -66,8 +65,20 @@ def main() -> None:
     registry = ScraperRegistry.default(settings.carousell_host)
     service = DealService(settings=settings, store=store, registry=registry)
 
+    # Health server + Mini App (page & API) share one port with the bot.
+    threading.Thread(
+        target=_run_health_server,
+        args=(settings.port, settings, service),
+        daemon=True,
+    ).start()
+
     application = build_application(settings, service)
     _application = application
+
+    if settings.has_webapp:
+        log.info("Mini App available at %s/webapp", settings.webapp_url)
+    else:
+        log.info("WEBAPP_URL not set — Mini App menu button disabled")
 
     log.info("starting Telegram bot (long polling)")
     application.run_polling(allowed_updates=["message"])

@@ -1,0 +1,50 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+  <title>Deal Hunter</title>
+  <script src="https://telegram.org/js/telegram-web-app.js"></script>
+  <link rel="stylesheet" href="/webapp/style.css" />
+</head>
+<body>
+  <header>
+    <h1>🕵️ Deal Hunter</h1>
+    <nav class="tabs">
+      <button class="tab active" data-tab="deals">Deals</button>
+      <button class="tab" data-tab="watches">Watches</button>
+    </nav>
+  </header>
+
+  <main>
+    <!-- Deals / search -->
+    <section id="deals" class="panel active">
+      <form id="search-form" class="row">
+        <input id="search-input" type="text" placeholder="Search e.g. iphone 15 pro" autocomplete="off" />
+        <button type="submit" class="primary">Search</button>
+      </form>
+      <p id="deals-status" class="status"></p>
+      <div id="deals-list" class="cards"></div>
+    </section>
+
+    <!-- Watches -->
+    <section id="watches" class="panel">
+      <form id="watch-form" class="watch-form">
+        <input id="w-query" type="text" placeholder="What to watch (e.g. macbook air)" autocomplete="off" />
+        <div class="row">
+          <input id="w-price" type="number" min="0" step="1" placeholder="Max price (optional)" />
+          <input id="w-keywords" type="text" placeholder="Keywords, ; separated" />
+        </div>
+        <button type="submit" class="primary">＋ Add watch</button>
+      </form>
+
+      <button id="scan-now" class="secondary">🔄 Scan all watches now</button>
+      <p id="watches-status" class="status"></p>
+      <div id="watches-list"></div>
+      <div id="scan-results" class="cards"></div>
+    </section>
+  </main>
+
+  <script src="/webapp/app.js"></script>
+</body>
+</html>

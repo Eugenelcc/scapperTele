@@ -64,6 +64,7 @@ Now message your bot on Telegram:
 | `/watches` | List built-in + your saved watches |
 | `/unwatch <id>` | Remove a saved watch |
 | `/scan` | Run all watches now, show new deals |
+| `/app` | Open the visual deal browser (Mini App) |
 | `/subscribe` / `/unsubscribe` | Toggle automatic alerts in this chat |
 | `/help` | Show help |
 
@@ -80,6 +81,27 @@ Examples:
 - `/watch airpods pro` → any AirPods Pro, any price
 
 ---
+
+## 📱 The Mini App (in-Telegram web view)
+
+Besides the text commands, the bot ships a **Telegram Mini App** — a real web
+view that pops up *inside* Telegram with a card UI for browsing deals and a form
+for managing watches. It's launched two ways:
+
+- The **☰ menu button** next to the message box (set automatically on startup).
+- The **/app** command, which sends an "Open Deal Hunter" button.
+
+The page is served by the app itself at `/webapp`, and it talks to a small JSON
+API (`/api/search`, `/api/watches`, `/api/scan`). Every API call is
+authenticated by validating Telegram's signed
+[`initData`](https://core.telegram.org/bots/webapps#validating-data-received-via-the-mini-app)
+against your bot token — no separate login, and requests can't be forged.
+
+**Requirements:** a public **https** URL. On Render that's automatic
+(`RENDER_EXTERNAL_URL`), so the Mini App just works once deployed — no extra
+config. Locally you'd need an https tunnel (e.g. ngrok) and to set `WEBAPP_URL`
+to it; set `WEBAPP_ALLOW_INSECURE=1` **only** for local testing to skip
+`initData` validation (never in production).
 
 ## 3. Deploy to Render (24/7)
 
@@ -134,6 +156,8 @@ All configuration is via environment variables (see [`.env.example`](./.env.exam
 | `CAROUSELL_HOST` | `www.carousell.sg` | Regional Carousell host. |
 | `MAX_RESULTS` | `40` | Max listings fetched per query per source. |
 | `SCAN_TOKEN` | — | Shared secret guarding `GET /scan`. |
+| `WEBAPP_URL` | *(RENDER_EXTERNAL_URL)* | Public https base URL for the Mini App. Auto on Render. |
+| `WEBAPP_ALLOW_INSECURE` | `false` | Dev-only: skip Telegram initData validation. |
 | `PORT` | `10000` | HTTP port (Render sets this automatically). |
 | `DATA_DIR` | `data` | Where the SQLite DB lives. |
 
@@ -163,7 +187,10 @@ All configuration is via environment variables (see [`.env.example`](./.env.exam
 - **`app/service.py`** — orchestrates a scan: search → filter → keep only listings
   not seen before.
 - **`app/bot/`** — Telegram command handlers + message formatting.
-- **`main.py`** — runs the bot (long polling) and a Flask health server together.
+- **`app/webapp/`** — the Mini App: static page (`static/`), JSON API
+  (`api.py`), and Telegram `initData` validation (`auth.py`).
+- **`main.py`** — runs the bot (long polling) and a Flask server (health +
+  Mini App) together.
 
 ### Adding another marketplace
 

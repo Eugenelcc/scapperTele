@@ -11,14 +11,22 @@ from telegram.ext import Application
 
 from .bot.telegram_bot import scheduled_scan
 from .config import Settings
+from .service import DealService
+from .webapp.api import create_webapp_blueprint
 
 log = logging.getLogger(__name__)
 
 
 def create_health_app(
-    settings: Settings, get_application: Callable[[], Optional[Application]]
+    settings: Settings,
+    get_application: Callable[[], Optional[Application]],
+    service: Optional[DealService] = None,
 ) -> Flask:
     flask_app = Flask(__name__)
+
+    # Mount the Telegram Mini App (page + JSON API) when the bot is configured.
+    if service is not None:
+        flask_app.register_blueprint(create_webapp_blueprint(settings, service))
 
     @flask_app.get("/")
     def index():

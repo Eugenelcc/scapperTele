@@ -5,7 +5,13 @@ import asyncio
 import logging
 from typing import List
 
-from telegram import Update
+from telegram import (
+    InlineKeyboardButton,
+    InlineKeyboardMarkup,
+    MenuButtonWebApp,
+    Update,
+    WebAppInfo,
+)
 from telegram.constants import ParseMode
 from telegram.error import TelegramError
 from telegram.ext import (
@@ -31,11 +37,16 @@ HELP_TEXT = (
     "/watches — list your saved watches\n"
     "/unwatch &lt;id&gt; — remove a saved watch\n"
     "/scan — run all watches now and show new deals\n"
+    "/app — open the visual deal browser (Mini App)\n"
     "/subscribe — get automatic alerts in this chat\n"
     "/unsubscribe — stop automatic alerts\n"
     "/help — show this message\n\n"
     "I also scan on a schedule and message subscribers when new deals appear."
 )
+
+
+def _webapp_full_url(settings: Settings) -> str:
+    return settings.webapp_url + "/webapp"
 
 
 async def cmd_start(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
@@ -50,6 +61,24 @@ async def cmd_start(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
 
 async def cmd_help(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
     await update.message.reply_html(HELP_TEXT)
+
+
+async def cmd_app(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
+    service: DealService = context.application.bot_data["service"]
+    settings = service.settings
+    if not settings.has_webapp:
+        await update.message.reply_html(
+            "The Mini App isn't configured yet. Set <code>WEBAPP_URL</code> "
+            "(or deploy on Render, which provides it automatically) and "
+            "redeploy. You can still use /search and /watch here."
+        )
+        return
+    keyboard = InlineKeyboardMarkup(
+        [[InlineKeyboardButton("🛍️ Open Deal Hunter", web_app=WebAppInfo(url=_webapp_full_url(settings)))]]
+    )
+    await update.message.reply_html(
+        "Tap below to open the visual deal browser:", reply_markup=keyboard
+    )
 
 
 async def cmd_search(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
@@ -181,12 +210,36 @@ async def scheduled_scan(context: ContextTypes.DEFAULT_TYPE) -> None:
     await broadcast_hits(context.application, hits)
 
 
+async def _post_init(app: Application) -> None:
+    """Runs once when the bot starts: set the ☰ menu button to the Mini App."""
+    service: DealService = app.bot_data["service"]
+    settings = service.settings
+    if not settings.has_webapp:
+        log.info("WEBAPP_URL not set — menu button left as default")
+        return
+    try:
+        await app.bot.set_chat_menu_button(
+            menu_button=MenuButtonWebApp(
+                text="Deals", web_app=WebAppInfo(url=_webapp_full_url(settings))
+            )
+        )
+        log.info("menu button set to Mini App at %s", _webapp_full_url(settings))
+    except TelegramError as exc:
+        log.warning("could not set menu button: %s", exc)
+
+
 def build_application(settings: Settings, service: DealService) -> Application:
-    app = Application.builder().token(settings.telegram_token).build()
+    app = (
+        Application.builder()
+        .token(settings.telegram_token)
+        .post_init(_post_init)
+        .build()
+    )
     app.bot_data["service"] = service
 
     app.add_handler(CommandHandler("start", cmd_start))
     app.add_handler(CommandHandler("help", cmd_help))
+    app.add_handler(CommandHandler("app", cmd_app))
     app.add_handler(CommandHandler("search", cmd_search))
     app.add_handler(CommandHandler("watch", cmd_watch))
     app.add_handler(CommandHandler("watches", cmd_watches))

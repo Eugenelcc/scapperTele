@@ -91,10 +91,31 @@ class Settings:
     port: int
     scan_token: str
     data_dir: str
+    webapp_url: str
+    webapp_allow_insecure: bool
 
     @property
     def has_token(self) -> bool:
         return bool(self.telegram_token and ":" in self.telegram_token)
+
+    @property
+    def has_webapp(self) -> bool:
+        # Telegram requires an https:// URL to launch a Web App.
+        return self.webapp_url.startswith("https://")
+
+
+def _webapp_url() -> str:
+    """The public https URL the Mini App is served from.
+
+    Prefer an explicit WEBAPP_URL; otherwise fall back to Render's
+    auto-injected RENDER_EXTERNAL_URL. Trailing slash trimmed.
+    """
+    url = (
+        os.environ.get("WEBAPP_URL")
+        or os.environ.get("RENDER_EXTERNAL_URL")
+        or ""
+    ).strip().rstrip("/")
+    return url
 
 
 def load_settings() -> Settings:
@@ -108,4 +129,9 @@ def load_settings() -> Settings:
         port=_get_int("PORT", 10000),
         scan_token=os.environ.get("SCAN_TOKEN", "").strip(),
         data_dir=os.environ.get("DATA_DIR", "data").strip() or "data",
+        webapp_url=_webapp_url(),
+        webapp_allow_insecure=os.environ.get("WEBAPP_ALLOW_INSECURE", "")
+        .strip()
+        .lower()
+        in ("1", "true", "yes"),
     )
