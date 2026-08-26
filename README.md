@@ -103,32 +103,48 @@ config. Locally you'd need an https tunnel (e.g. ngrok) and to set `WEBAPP_URL`
 to it; set `WEBAPP_ALLOW_INSECURE=1` **only** for local testing to skip
 `initData` validation (never in production).
 
-## ⚡ Important: Carousell needs a scraping API
+## ⚡ Important: Carousell is behind Cloudflare
 
 Carousell is protected by a **Cloudflare anti-bot challenge**, so a plain
 request from a server (like Render) gets a "Just a moment…" page instead of
-results — **searches return nothing without this step.** The fix is to route
-Carousell fetches through a scraping API that solves Cloudflare for you.
+results — **Carousell searches return nothing without a backend that solves
+it.** There are two options (and you can skip Carousell entirely and just use
+[eBay](#-recommended-free-source-ebay-always-works)):
 
-**Setup (free):**
-1. Sign up at **[scraperapi.com](https://www.scraperapi.com)** (free plan ≈
-   1,000 credits/month) and copy your **API key**.
-2. Set it as `SCRAPER_API_KEY` in your environment / Render dashboard.
+### Option A — Apify (recommended): handles Cloudflare *and* parsing
 
-That's it — when the key is present, the bot automatically routes Carousell
-through ScraperAPI with Cloudflare bypass (`SCRAPER_PROVIDER=scraperapi`,
-`SCRAPER_ULTRA_PREMIUM=true`). Prefer a different service? Set
-`SCRAPER_PROVIDER=scrapedo` and use a [scrape.do](https://scrape.do) key.
+An Apify Actor runs a real browser (passing Cloudflare) and returns structured
+listings, so there's no fragile HTML parsing.
 
-**Budget note:** a Cloudflare-bypass fetch costs several credits, so ~35–100
-searches/month on the free tier. Keep watches few and `SCAN_INTERVAL_HOURS`
-high (12 is the default) to stay within it. You can verify it works any time:
+1. Sign up at **[apify.com](https://apify.com)** (free plan = **$5 credits/mo**).
+2. **Settings → Integrations → API token**, copy it → set as `APIFY_TOKEN`.
+3. In the **Apify Store**, search "Carousell", pick a **free-to-use** Actor,
+   copy its **Actor ID** (like `username~actor-name`) → set as `APIFY_ACTOR_ID`.
+
+When both are set, Carousell is scraped via Apify automatically. Actors differ
+in their input key for the search term — if results are empty, inspect the
+Actor's real output and tune `APIFY_QUERY_FIELD` (try `search`, `keywords`, or
+`queries`; set `APIFY_QUERY_AS_LIST=1` if it wants a list):
+```
+GET https://<your-url>/debug/apify?token=<SCAN_TOKEN>&q=iphone
+```
+That returns the input sent, the item count, and the **first raw item** so the
+field names are visible.
+
+### Option B — a scraping API (ScraperAPI / Scrape.do)
+
+Route Carousell through a scraping API that solves Cloudflare. Set
+`SCRAPER_API_KEY` (from [scraperapi.com](https://www.scraperapi.com)). Note:
+Cloudflare bypass needs their **premium/ultra tier** — the free plan's
+datacenter proxies usually still get blocked, so **Apify or eBay are the better
+free choices**. Verify with:
 ```
 GET https://<your-url>/debug/carousell?token=<SCAN_TOKEN>&q=iphone
 ```
-A healthy response shows `"status": 200`, `"json_parsed": true`, and a non-zero
-`"extracted_listings"`. If you see `"blockers": ["cloudflare"]`, the key isn't
-set (or `direct` mode is on).
+Healthy = `"status": 200`, `"json_parsed": true`, non-zero `"extracted_listings"`.
+
+**Budget note (both options):** keep watches few and `SCAN_INTERVAL_HOURS` high
+(12 default) to stay within free credits.
 
 ## ✅ Recommended free source: eBay (always works)
 
@@ -216,6 +232,12 @@ All configuration is via environment variables (see [`.env.example`](./.env.exam
 | `EBAY_CERT_ID` | — | eBay Production Cert ID (Client Secret). |
 | `EBAY_MARKETPLACE` | `EBAY_SG` | eBay marketplace (e.g. `EBAY_US`, `EBAY_GB`). |
 | `EBAY_ENV` | `production` | `production` or `sandbox`. |
+| `APIFY_TOKEN` | — | Apify API token. With `APIFY_ACTOR_ID`, routes Carousell via Apify. |
+| `APIFY_ACTOR_ID` | — | Apify Carousell Actor id, e.g. `username~actor-name`. |
+| `APIFY_QUERY_FIELD` | `search` | The Actor's input key for the search term. |
+| `APIFY_QUERY_AS_LIST` | `false` | Wrap the query in a list if the Actor expects one. |
+| `APIFY_MAX_FIELD` | `maxItems` | The Actor's input key for the result cap. |
+| `APIFY_EXTRA_INPUT` | — | Extra Actor input merged in, as JSON. |
 
 *`SCRAPER_PROVIDER` defaults to `scraperapi` when `SCRAPER_API_KEY` is set, otherwise `direct` (no proxy — Carousell will be blocked). The **eBay** source turns on automatically when both eBay keys are set; you can run eBay only, Carousell only, or both.
 | `SCAN_TOKEN` | — | Shared secret guarding `GET /scan`. |
@@ -242,11 +264,12 @@ All configuration is via environment variables (see [`.env.example`](./.env.exam
                                           └─────────────────────────┘
 ```
 
-- **`app/scrapers/`** — one class per marketplace + a `fetcher` layer that
-  routes requests through a scraping API (ScraperAPI/Scrape.do) to pass
-  Carousell's Cloudflare wall. Carousell reads the JSON embedded in its search
-  page (`__NEXT_DATA__`) and extracts listings heuristically, so it degrades
-  gracefully if the layout shifts.
+- **`app/scrapers/`** — one class per source. Carousell has two backends:
+  `apify.py` (an Apify Actor that passes Cloudflare and returns structured
+  data — recommended) and `carousell.py` (direct/scraping-API fetch + a
+  tolerant `__NEXT_DATA__` extractor). `ebay.py` is the official-API source.
+  `fetcher.py` routes non-Apify Carousell fetches through a scraping API.
+  `registry.py` picks the Carousell backend from your env and merges sources.
 - **`app/core/`** — the `Listing` model, price/keyword `matcher`, and a small
   SQLite `Store` (de-dup + saved watches + subscribers).
 - **`app/service.py`** — orchestrates a scan: search → filter → keep only listings

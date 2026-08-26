@@ -64,4 +64,28 @@ def create_health_app(
         )
         return jsonify(scraper.diagnostics(query))
 
+    @flask_app.get("/debug/apify")
+    def debug_apify():
+        """Inspect an Apify Carousell Actor's raw output to tune field mapping.
+        Guarded by SCAN_TOKEN. Example: /debug/apify?token=...&q=iphone
+        """
+        token = request.args.get("token", "")
+        if settings.scan_token and token != settings.scan_token:
+            return jsonify(error="unauthorized"), 401
+        if not settings.apify_enabled:
+            return jsonify(error="apify not configured (set APIFY_TOKEN/APIFY_ACTOR_ID)"), 400
+        from .scrapers.apify import ApifyCarousellScraper
+
+        query = request.args.get("q", "iphone")
+        scraper = ApifyCarousellScraper(
+            token=settings.apify_token,
+            actor_id=settings.apify_actor_id,
+            host=settings.carousell_host,
+            query_field=settings.apify_query_field,
+            query_as_list=settings.apify_query_as_list,
+            max_field=settings.apify_max_field,
+            extra_input=settings.apify_extra_input,
+        )
+        return jsonify(scraper.diagnostics(query))
+
     return flask_app

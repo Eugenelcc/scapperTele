@@ -28,6 +28,14 @@ services:
         value: "scraperapi"  # or "scrapedo"; "direct" disables the proxy
       - key: SCRAPER_ULTRA_PREMIUM
         value: "true"        # needed to pass Cloudflare (costs more credits)
+      # Apify: recommended Carousell backend (handles Cloudflare + parsing).
+      # Set both to route Carousell through an Apify Actor. Free = $5/mo credit.
+      - key: APIFY_TOKEN
+        sync: false
+      - key: APIFY_ACTOR_ID
+        sync: false          # e.g. "username~carousell-scraper"
+      - key: APIFY_QUERY_FIELD
+        value: "search"      # the Actor's search-term input key
       # eBay source (free, official, no bot-wall). Create a free app at
       # https://developer.ebay.com and paste the Production keys in the dashboard.
       - key: EBAY_APP_ID

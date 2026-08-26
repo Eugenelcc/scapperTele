@@ -102,6 +102,12 @@ class Settings:
     ebay_cert_id: str
     ebay_marketplace: str
     ebay_env: str
+    apify_token: str
+    apify_actor_id: str
+    apify_query_field: str
+    apify_query_as_list: bool
+    apify_max_field: str
+    apify_extra_input: str
 
     @property
     def has_token(self) -> bool:
@@ -110,6 +116,10 @@ class Settings:
     @property
     def ebay_enabled(self) -> bool:
         return bool(self.ebay_app_id and self.ebay_cert_id)
+
+    @property
+    def apify_enabled(self) -> bool:
+        return bool(self.apify_token and self.apify_actor_id)
 
     @property
     def has_webapp(self) -> bool:
@@ -179,4 +189,12 @@ def load_settings() -> Settings:
         or "EBAY_SG",
         ebay_env=os.environ.get("EBAY_ENV", "production").strip().lower()
         or "production",
+        apify_token=os.environ.get("APIFY_TOKEN", "").strip(),
+        apify_actor_id=os.environ.get("APIFY_ACTOR_ID", "").strip(),
+        apify_query_field=os.environ.get("APIFY_QUERY_FIELD", "search").strip()
+        or "search",
+        apify_query_as_list=_bool_env("APIFY_QUERY_AS_LIST", False),
+        apify_max_field=os.environ.get("APIFY_MAX_FIELD", "maxItems").strip()
+        or "maxItems",
+        apify_extra_input=os.environ.get("APIFY_EXTRA_INPUT", "").strip(),
     )
