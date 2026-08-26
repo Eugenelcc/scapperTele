@@ -148,9 +148,11 @@ class ApifyCarousellScraper(BaseScraper):
         return f"{_API_BASE}/{self.actor_id}/run-sync-get-dataset-items"
 
     def _call(self, query: str, limit: int) -> List[Any]:
+        # Auth via header (not a ?token= query param) so the token never appears
+        # in request URLs, exception messages or logs.
         resp = httpx.post(
             self._run_url(),
-            params={"token": self.token},
+            headers={"Authorization": f"Bearer {self.token}"},
             json=self.build_input(query, limit),
             timeout=self.timeout,
         )
@@ -158,15 +160,23 @@ class ApifyCarousellScraper(BaseScraper):
         data = resp.json()
         return data if isinstance(data, list) else []
 
+    def _redact(self, text: str) -> str:
+        return text.replace(self.token, "***") if self.token else text
+
     def search(self, query: str, limit: int = 40) -> List[Listing]:
         try:
             items = self._call(query, limit)
         except httpx.HTTPStatusError as exc:
             body = exc.response.text[:300] if exc.response is not None else ""
-            log.warning("apify actor failed for %r: %s | %s", query, exc, body)
+            log.warning(
+                "apify actor failed for %r: %s | %s",
+                query,
+                self._redact(str(exc)),
+                self._redact(body),
+            )
             return []
         except Exception as exc:
-            log.warning("apify actor failed for %r: %s", query, exc)
+            log.warning("apify actor failed for %r: %s", query, self._redact(str(exc)))
             return []
         try:
             return extract_listings(items, self.host, limit=limit)
@@ -183,13 +193,13 @@ class ApifyCarousellScraper(BaseScraper):
         try:
             items = self._call(query, limit)
         except httpx.HTTPStatusError as exc:
-            info["error"] = f"{exc}"
+            info["error"] = self._redact(f"{exc}")
             if exc.response is not None:
                 info["status"] = exc.response.status_code
-                info["body"] = exc.response.text[:500]
+                info["body"] = self._redact(exc.response.text[:500])
             return info
         except Exception as exc:
-            info["error"] = repr(exc)
+            info["error"] = self._redact(repr(exc))
             return info
         info["item_count"] = len(items)
         info["first_item"] = items[0] if items else None
