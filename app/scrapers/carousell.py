@@ -20,6 +20,8 @@ import re
 from typing import Any, Dict, Iterable, List, Optional
 from urllib.parse import quote
 
+import httpx
+
 from ..core.models import Listing
 from .base import BaseScraper
 from .fetcher import Fetcher, FetcherConfig
@@ -179,7 +181,19 @@ class CarousellScraper(BaseScraper):
             resp = self.fetcher.get(url)
             resp.raise_for_status()
             html = resp.text
-        except Exception as exc:  # network, timeout, HTTP error
+        except httpx.HTTPStatusError as exc:
+            # Surface the provider's error body (e.g. ScraperAPI explaining that
+            # a feature isn't in your plan, or you're out of credits).
+            body = exc.response.text[:300] if exc.response is not None else ""
+            log.warning(
+                "carousell fetch failed for %r (via %s): %s | body=%s",
+                query,
+                self.fetcher.describe(),
+                exc,
+                body,
+            )
+            return []
+        except Exception as exc:  # network, timeout, connection error
             log.warning(
                 "carousell fetch failed for %r (via %s): %s",
                 query,
