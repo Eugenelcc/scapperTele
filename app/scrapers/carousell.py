@@ -20,10 +20,9 @@ import re
 from typing import Any, Dict, Iterable, List, Optional
 from urllib.parse import quote
 
-import httpx
-
 from ..core.models import Listing
 from .base import BaseScraper
+from .fetcher import Fetcher, FetcherConfig
 
 log = logging.getLogger(__name__)
 
@@ -35,15 +34,6 @@ _STATE_RE = re.compile(
     re.DOTALL,
 )
 _PRICE_RE = re.compile(r"(\d[\d,]*(?:\.\d+)?)")
-
-_HEADERS = {
-    "User-Agent": (
-        "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 "
-        "(KHTML, like Gecko) Chrome/122.0.0.0 Safari/537.36"
-    ),
-    "Accept": "text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8",
-    "Accept-Language": "en-SG,en;q=0.9",
-}
 
 
 def parse_price(value: Any) -> Optional[float]:
@@ -173,9 +163,11 @@ def _json_from_html(html: str) -> Optional[Any]:
 class CarousellScraper(BaseScraper):
     name = "carousell"
 
-    def __init__(self, host: str = "www.carousell.sg", timeout: float = 20.0):
+    def __init__(self, host: str = "www.carousell.sg", fetcher: Fetcher = None):
         self.host = host
-        self.timeout = timeout
+        # Default to a plain direct fetcher (which Cloudflare will block) so the
+        # scraper is usable standalone; production passes a configured one.
+        self.fetcher = fetcher or Fetcher(FetcherConfig())
 
     def _url(self, query: str) -> str:
         # sort_by=3 -> most recent listings first.
@@ -184,14 +176,16 @@ class CarousellScraper(BaseScraper):
     def search(self, query: str, limit: int = 40) -> List[Listing]:
         url = self._url(query)
         try:
-            with httpx.Client(
-                headers=_HEADERS, timeout=self.timeout, follow_redirects=True
-            ) as client:
-                resp = client.get(url)
-                resp.raise_for_status()
-                html = resp.text
+            resp = self.fetcher.get(url)
+            resp.raise_for_status()
+            html = resp.text
         except Exception as exc:  # network, timeout, HTTP error
-            log.warning("carousell fetch failed for %r: %s", query, exc)
+            log.warning(
+                "carousell fetch failed for %r (via %s): %s",
+                query,
+                self.fetcher.describe(),
+                exc,
+            )
             return []
 
         document = _json_from_html(html)
@@ -210,15 +204,12 @@ class CarousellScraper(BaseScraper):
         from a changed-JSON-shape problem.
         """
         url = self._url(query)
-        info: dict = {"url": url, "host": self.host}
+        info: dict = {"url": url, "host": self.host, "fetcher": self.fetcher.describe()}
         try:
-            with httpx.Client(
-                headers=_HEADERS, timeout=self.timeout, follow_redirects=True
-            ) as client:
-                resp = client.get(url)
-                info["status"] = resp.status_code
-                info["final_url"] = str(resp.url)
-                html = resp.text
+            resp = self.fetcher.get(url)
+            info["status"] = resp.status_code
+            info["final_url"] = str(resp.url)
+            html = resp.text
         except Exception as exc:
             info["error"] = repr(exc)
             return info

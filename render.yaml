@@ -13,13 +13,21 @@ services:
       - key: TELEGRAM_CHAT_ID
         sync: false
       - key: SCAN_INTERVAL_HOURS
-        value: "3"
+        value: "12"          # keep modest to protect free scraping-API credits
       - key: DEFAULT_WATCHES
         value: "iphone 15|900|256;pro , macbook air|1400|m2;m3"
       - key: CAROUSELL_HOST
         value: "www.carousell.sg"
       - key: MAX_RESULTS
         value: "40"
+      # Carousell is Cloudflare-protected, so fetches go through a scraping API.
+      # Sign up free at scraperapi.com and paste the key in the dashboard.
+      - key: SCRAPER_API_KEY
+        sync: false          # secret; set in the Render dashboard
+      - key: SCRAPER_PROVIDER
+        value: "scraperapi"  # or "scrapedo"; "direct" disables the proxy
+      - key: SCRAPER_ULTRA_PREMIUM
+        value: "true"        # needed to pass Cloudflare (costs more credits)
       - key: SCAN_TOKEN
         generateValue: true  # random secret for the /scan endpoint
       - key: PYTHON_VERSION

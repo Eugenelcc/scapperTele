@@ -56,9 +56,12 @@ def create_health_app(
         if settings.scan_token and token != settings.scan_token:
             return jsonify(error="unauthorized"), 401
         from .scrapers.carousell import CarousellScraper
+        from .scrapers.fetcher import fetcher_from_settings
 
         query = request.args.get("q", "iphone")
-        scraper = CarousellScraper(host=settings.carousell_host)
+        scraper = CarousellScraper(
+            host=settings.carousell_host, fetcher=fetcher_from_settings(settings)
+        )
         return jsonify(scraper.diagnostics(query))
 
     return flask_app

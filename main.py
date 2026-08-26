@@ -62,8 +62,9 @@ def main() -> None:
         return
 
     store = Store(os.path.join(settings.data_dir, "deals.db"))
-    registry = ScraperRegistry.default(settings.carousell_host)
+    registry = ScraperRegistry.from_settings(settings)
     service = DealService(settings=settings, store=store, registry=registry)
+    log.info("scraper backend: %s", settings.scraper_provider)
 
     # Health server + Mini App (page & API) share one port with the bot.
     threading.Thread(

@@ -103,6 +103,33 @@ config. Locally you'd need an https tunnel (e.g. ngrok) and to set `WEBAPP_URL`
 to it; set `WEBAPP_ALLOW_INSECURE=1` **only** for local testing to skip
 `initData` validation (never in production).
 
+## ⚡ Important: Carousell needs a scraping API
+
+Carousell is protected by a **Cloudflare anti-bot challenge**, so a plain
+request from a server (like Render) gets a "Just a moment…" page instead of
+results — **searches return nothing without this step.** The fix is to route
+Carousell fetches through a scraping API that solves Cloudflare for you.
+
+**Setup (free):**
+1. Sign up at **[scraperapi.com](https://www.scraperapi.com)** (free plan ≈
+   1,000 credits/month) and copy your **API key**.
+2. Set it as `SCRAPER_API_KEY` in your environment / Render dashboard.
+
+That's it — when the key is present, the bot automatically routes Carousell
+through ScraperAPI with Cloudflare bypass (`SCRAPER_PROVIDER=scraperapi`,
+`SCRAPER_ULTRA_PREMIUM=true`). Prefer a different service? Set
+`SCRAPER_PROVIDER=scrapedo` and use a [scrape.do](https://scrape.do) key.
+
+**Budget note:** a Cloudflare-bypass fetch costs several credits, so ~35–100
+searches/month on the free tier. Keep watches few and `SCAN_INTERVAL_HOURS`
+high (12 is the default) to stay within it. You can verify it works any time:
+```
+GET https://<your-url>/debug/carousell?token=<SCAN_TOKEN>&q=iphone
+```
+A healthy response shows `"status": 200`, `"json_parsed": true`, and a non-zero
+`"extracted_listings"`. If you see `"blockers": ["cloudflare"]`, the key isn't
+set (or `direct` mode is on).
+
 ## 3. Deploy to Render (24/7)
 
 This repo includes a [`render.yaml`](./render.yaml) blueprint.
@@ -155,6 +182,13 @@ All configuration is via environment variables (see [`.env.example`](./.env.exam
 | `DEFAULT_WATCHES` | — | Comma-separated built-in watches (`query\|maxPrice\|kw1;kw2`). |
 | `CAROUSELL_HOST` | `www.carousell.sg` | Regional Carousell host. |
 | `MAX_RESULTS` | `40` | Max listings fetched per query per source. |
+| `SCRAPER_API_KEY` | — | Scraping-API key to bypass Carousell's Cloudflare. **Needed for results.** |
+| `SCRAPER_PROVIDER` | `scraperapi`* | Backend: `scraperapi`, `scrapedo`, or `direct`. |
+| `SCRAPER_ULTRA_PREMIUM` | `true` | Use premium proxies (needed for Cloudflare; costs more credits). |
+| `SCRAPER_RENDER` | `true` | Execute JS on fetch. |
+| `SCRAPER_COUNTRY` | `sg` | Proxy country. |
+
+*`SCRAPER_PROVIDER` defaults to `scraperapi` when `SCRAPER_API_KEY` is set, otherwise `direct` (no proxy — Carousell will be blocked).
 | `SCAN_TOKEN` | — | Shared secret guarding `GET /scan`. |
 | `WEBAPP_URL` | *(RENDER_EXTERNAL_URL)* | Public https base URL for the Mini App. Auto on Render. |
 | `WEBAPP_ALLOW_INSECURE` | `false` | Dev-only: skip Telegram initData validation. |
@@ -179,9 +213,11 @@ All configuration is via environment variables (see [`.env.example`](./.env.exam
                                           └─────────────────────────┘
 ```
 
-- **`app/scrapers/`** — one class per marketplace. Carousell reads the JSON
-  embedded in its search page (`__NEXT_DATA__`) and extracts listings
-  heuristically, so it degrades gracefully if the layout shifts.
+- **`app/scrapers/`** — one class per marketplace + a `fetcher` layer that
+  routes requests through a scraping API (ScraperAPI/Scrape.do) to pass
+  Carousell's Cloudflare wall. Carousell reads the JSON embedded in its search
+  page (`__NEXT_DATA__`) and extracts listings heuristically, so it degrades
+  gracefully if the layout shifts.
 - **`app/core/`** — the `Listing` model, price/keyword `matcher`, and a small
   SQLite `Store` (de-dup + saved watches + subscribers).
 - **`app/service.py`** — orchestrates a scan: search → filter → keep only listings

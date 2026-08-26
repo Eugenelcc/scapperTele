@@ -93,6 +93,11 @@ class Settings:
     data_dir: str
     webapp_url: str
     webapp_allow_insecure: bool
+    scraper_provider: str
+    scraper_api_key: str
+    scraper_render: bool
+    scraper_ultra: bool
+    scraper_country: str
 
     @property
     def has_token(self) -> bool:
@@ -118,7 +123,27 @@ def _webapp_url() -> str:
     return url
 
 
+def _bool_env(name: str, default: bool) -> bool:
+    raw = os.environ.get(name)
+    if raw is None or raw.strip() == "":
+        return default
+    return raw.strip().lower() in ("1", "true", "yes", "on")
+
+
+def _scraper_provider(api_key: str) -> str:
+    """Which fetch backend to use for anti-bot-walled sites.
+
+    Explicit SCRAPER_PROVIDER wins; otherwise default to scraperapi when a key
+    is present, else direct (which Cloudflare will block on Carousell).
+    """
+    provider = os.environ.get("SCRAPER_PROVIDER", "").strip().lower()
+    if provider:
+        return provider
+    return "scraperapi" if api_key else "direct"
+
+
 def load_settings() -> Settings:
+    scraper_api_key = os.environ.get("SCRAPER_API_KEY", "").strip()
     return Settings(
         telegram_token=os.environ.get("TELEGRAM_BOT_TOKEN", "").strip(),
         telegram_chat_id=os.environ.get("TELEGRAM_CHAT_ID", "").strip(),
@@ -134,4 +159,10 @@ def load_settings() -> Settings:
         .strip()
         .lower()
         in ("1", "true", "yes"),
+        scraper_provider=_scraper_provider(scraper_api_key),
+        scraper_api_key=scraper_api_key,
+        # Cloudflare needs JS rendering + premium residential proxies to pass.
+        scraper_render=_bool_env("SCRAPER_RENDER", True),
+        scraper_ultra=_bool_env("SCRAPER_ULTRA_PREMIUM", True),
+        scraper_country=os.environ.get("SCRAPER_COUNTRY", "sg").strip() or "sg",
     )

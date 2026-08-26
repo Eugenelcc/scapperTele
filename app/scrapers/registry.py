@@ -7,6 +7,7 @@ from typing import List
 from ..core.models import Listing
 from .base import BaseScraper
 from .carousell import CarousellScraper
+from .fetcher import Fetcher, FetcherConfig, fetcher_from_settings
 
 log = logging.getLogger(__name__)
 
@@ -16,8 +17,18 @@ class ScraperRegistry:
         self.scrapers = scrapers
 
     @classmethod
-    def default(cls, carousell_host: str = "www.carousell.sg") -> "ScraperRegistry":
-        return cls([CarousellScraper(host=carousell_host)])
+    def default(
+        cls, carousell_host: str = "www.carousell.sg", fetcher: Fetcher = None
+    ) -> "ScraperRegistry":
+        fetcher = fetcher or Fetcher(FetcherConfig())
+        return cls([CarousellScraper(host=carousell_host, fetcher=fetcher)])
+
+    @classmethod
+    def from_settings(cls, settings) -> "ScraperRegistry":
+        return cls.default(
+            carousell_host=settings.carousell_host,
+            fetcher=fetcher_from_settings(settings),
+        )
 
     def search(self, query: str, limit: int = 40) -> List[Listing]:
         """Search every source and merge the results."""
